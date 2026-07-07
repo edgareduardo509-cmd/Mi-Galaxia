@@ -36,8 +36,8 @@ const materialLinea = new THREE.LineBasicMaterial({
     opacity: 0,
     blending: THREE.AdditiveBlending 
 });
-const geometriaLinea = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,0)]);
-const lineaGravedad = new THREE.Line(geometriaLinea, materialLinea);
+const geometryLinea = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,0)]);
+const lineaGravedad = new THREE.Line(geometryLinea, materialLinea);
 escena.add(lineaGravedad);
 
 function crearTexturaPalabraUltra(texto, colorBase) {
@@ -139,14 +139,14 @@ function crearUniverso() {
     escena.add(new THREE.Points(geoEstrellas, new THREE.PointsMaterial({ size: 0.3, color: 0xffffff, transparent: true, opacity: 0.45 })));
 
     const datosPlanetas = [
-        { nombre: 'Mercurio', radio: 1.6, distancia: 48, color: 0xaa9988, metal: 0.1, rugosidad: 0.8, vel: 0.015 },
-        { nombre: 'Venus', radio: 2.3, distancia: 62, color: 0xe3944e, metal: 0.0, rugosidad: 0.6, vel: 0.012 },
-        { nombre: 'Tierra', radio: 2.6, distancia: 78, color: 0x2e86de, metal: 0.2, rugosidad: 0.2, vel: 0.009 },
-        { nombre: 'Marte', radio: 1.9, distancia: 94, color: 0xc0392b, metal: 0.1, rugosidad: 0.7, vel: 0.007 },
-        { nombre: 'Júpiter', radio: 5.8, distancia: 122, color: 0xd4a373, metal: 0.1, rugosidad: 0.4, vel: 0.005 },
-        { nombre: 'Saturno', radio: 4.8, distancia: 156, color: 0xf4e2bb, metal: 0.3, rugosidad: 0.3, vel: 0.004, tieneAnillo: true, anilloRadioMax: 11 },
-        { nombre: 'Urano', radio: 3.5, distancia: 188, color: 0x70a1ff, metal: 0.5, rugosidad: 0.1, vel: 0.003, tieneAnillo: true, anilloRadioMax: 6.5 },
-        { nombre: 'Neptuno', radio: 3.3, distancia: 215, color: 0x1e3799, metal: 0.4, rugosidad: 0.2, vel: 0.002 }
+        { nombre: 'Mercurio', radio: 1.6, distancia: 48, color: 0xaa9988, metal: 0.1, rugosidad: 0.8, vel: 0.035 },
+        { nombre: 'Venus', radio: 2.3, distancia: 62, color: 0xe3944e, metal: 0.0, rugosidad: 0.6, vel: 0.025 },
+        { nombre: 'Tierra', radio: 2.6, distancia: 78, color: 0x2e86de, metal: 0.2, rugosidad: 0.2, vel: 0.018 },
+        { nombre: 'Marte', radio: 1.9, distancia: 94, color: 0xc0392b, metal: 0.1, rugosidad: 0.7, vel: 0.014 },
+        { nombre: 'Júpiter', radio: 5.8, distancia: 122, color: 0xd4a373, metal: 0.1, rugosidad: 0.4, vel: 0.009 },
+        { nombre: 'Saturno', radio: 4.8, distancia: 156, color: 0xf4e2bb, metal: 0.3, rugosidad: 0.3, vel: 0.007, tieneAnillo: true, anilloRadioMax: 11, anilloVel: 0.5 },
+        { nombre: 'Urano', radio: 3.5, distancia: 188, color: 0x70a1ff, metal: 0.5, rugosidad: 0.1, vel: 0.005, tieneAnillo: true, anilloRadioMax: 6.5, anilloVel: -0.3 },
+        { nombre: 'Neptuno', radio: 3.3, distancia: 215, color: 0x1e3799, metal: 0.4, rugosidad: 0.2, vel: 0.004 }
     ];
 
     datosPlanetas.forEach((p) => {
@@ -164,8 +164,12 @@ function crearUniverso() {
 
         if(p.tieneAnillo) {
             const geoAnillo = new THREE.RingGeometry(p.radio * 1.3, p.radio * p.anilloRadioMax * 0.5, 64);
-            geoAnillo.rotateX(Math.PI / 2.1);
-            mallaPlaneta.add(new THREE.Mesh(geoAnillo, new THREE.MeshBasicMaterial({ color: p.color, side: THREE.DoubleSide, transparent: true, opacity: 0.4 })));
+            geoAnillo.rotateX(Math.PI / 2); // Base plana horizontal relativa al planeta
+            const mallaAnillo = new THREE.Mesh(geoAnillo, new THREE.MeshBasicMaterial({ color: p.color, side: THREE.DoubleSide, transparent: true, opacity: 0.4 }));
+            
+            // Guardamos referencia y velocidad del anillo para animarlo después
+            mallaAnillo.userData = { velocidadRotacion: p.anilloVel };
+            mallaPlaneta.add(mallaAnillo);
         }
 
         escena.add(mallaPlaneta);
@@ -267,10 +271,20 @@ async function iniciar() {
 
         objetosPlanetas.forEach((planeta) => {
             const data = planeta.userData;
-            data.angulo += data.velocidad * 0.3;
+            data.angulo += data.velocidad * 0.8; 
             planeta.position.x = Math.cos(data.angulo) * data.distancia;
             planeta.position.z = Math.sin(data.angulo) * data.distancia;
-            planeta.rotation.y += delta * 0.4;
+            planeta.rotation.y += delta * 0.6; 
+
+            // MOVIMIENTO DE ANILLOS COMPROBADO Y OPTIMIZADO
+            if (planeta.children.length > 0) {
+                const anillo = planeta.children[0];
+                // 1. Giro constante sobre su propio eje
+                anillo.rotation.z += delta * anillo.userData.velocidadRotacion;
+                // 2. Bamboleo cósmico sutil en los ejes X y Y usando senos y cosenos
+                anillo.rotation.x = (Math.PI / 2) + Math.sin(tiempoTotal * 1.5) * 0.08;
+                anillo.rotation.y = Math.cos(tiempoTotal * 1.5) * 0.08;
+            }
         });
 
         objetosPalabras.forEach((sprite) => {
